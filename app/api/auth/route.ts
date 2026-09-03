@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createSession, destroySession, hashPassword, normalizeUsername, setupRequired, verifyPassword } from '@/app/local-auth';
+import {
+  createSession,
+  destroySession,
+  hashPassword,
+  normalizeUsername,
+  setupRequired,
+  verifyPassword,
+} from '@/app/local-auth';
 import { getDatabase } from '@/db/binding';
 
 export async function GET() {
@@ -8,30 +15,82 @@ export async function GET() {
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
-  try { body = await request.json(); } catch { return NextResponse.json({ error: 'Dados inválidos.' }, { status: 400 }); }
-  const action = String(body.action ?? ''); const db = getDatabase();
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Dados inválidos.' }, { status: 400 });
+  }
+  const action = String(body.action ?? '');
+  const db = getDatabase();
   try {
     if (action === 'setup') {
-      if (!(await setupRequired())) return NextResponse.json({ error: 'O administrador já foi cadastrado.' }, { status: 409 });
-      const name = required(body.name, 80); const username = normalizeUsername(body.username); const phone = clean(body.phone, 24); const password = required(body.password, 200);
-      const credentials = await hashPassword(password); const existing = await db.prepare(`SELECT id FROM users WHERE role = 'admin' ORDER BY created_at LIMIT 1`).first<{id:string}>();
-      const id = existing?.id ?? `admin_${crypto.randomUUID()}`;
-      if (existing) {
-        await db.prepare('UPDATE users SET name = ?, username = ?, email = ?, phone = ?, password_hash = ?, password_salt = ?, active = 1 WHERE id = ?').bind(name, username, `${username}@local.cota`, normalizePhone(phone), credentials.hash, credentials.salt, id).run();
-      } else {
-        await db.prepare(`INSERT INTO users (id, username, email, name, phone, role, queue_position, credit_cents, active, password_hash, password_salt, created_at) VALUES (?, ?, ?, ?, ?, 'admin', 0, 0, 1, ?, ?, ?)`).bind(id, username, `${username}@local.cota`, name, normalizePhone(phone), credentials.hash, credentials.salt, Date.now()).run();
-      }
-      await db.prepare(`INSERT OR IGNORE INTO settings (id, total_bottles, full_bottles, bottle_price_cents, alert_threshold, next_queue_position, updated_at) VALUES (1, 0, 0, 2000, 3, 1, ?)`).bind(Date.now()).run();
+      if (!(await setupRequired()))
+        return NextResponse.json(
+          { error: 'O administrador já foi cadastrado.' },
+          { status: 409 },
+        );
+      const name = required(body.name, 80);
+      const username = normalizeUsername(body.username);
+      const phone = clean(body.phone, 24);
+      const password = required(body.password, 200);
+      const credentials = await hashPassword(password);
+      const id = `admin_${crypto.randomUUID()}`;
+      await db
+        .prepare(
+          `INSERT INTO accounts (id, username, name, phone, role, active, password_hash, password_salt, created_at) VALUES (?, ?, ?, ?, 'admin', 1, ?, ?, ?)`,
+        )
+        .bind(
+          id,
+          username,
+          name,
+          normalizePhone(phone),
+          credentials.hash,
+          credentials.salt,
+          Date.now(),
+        )
+        .run();
+      await db
+        .prepare(
+          `INSERT OR IGNORE INTO settings (id, total_bottles, full_bottles, bottle_price_cents, alert_threshold, next_queue_position, updated_at) VALUES (1, 0, 0, 2000, 3, 1, ?)`,
+        )
+        .bind(Date.now())
+        .run();
       await createSession(id);
-      return NextResponse.json({ ok: true, message: 'Administrador cadastrado.' });
+      return NextResponse.json({
+        ok: true,
+        message: 'Administrador cadastrado.',
+      });
     }
 
     if (action === 'login') {
-      const username = normalizeUsername(body.username); const password = required(body.password, 200);
-      const user = await db.prepare('SELECT id, password_hash AS passwordHash, password_salt AS passwordSalt, active FROM users WHERE username = ? LIMIT 1').bind(username).first<{id:string;passwordHash:string|null;passwordSalt:string|null;active:number}>();
-      const valid = Boolean(user?.active && user.passwordHash && user.passwordSalt && await verifyPassword(password, user.passwordHash, user.passwordSalt));
-      if (!valid || !user) return NextResponse.json({ error: 'Usuário ou senha incorretos.' }, { status: 401 });
-      await db.prepare('DELETE FROM sessions WHERE expires_at <= ?').bind(Date.now()).run();
+      const username = normalizeUsername(body.username);
+      const password = required(body.password, 200);
+      const user = await db
+        .prepare(
+          'SELECT id, password_hash AS passwordHash, password_salt AS passwordSalt, active FROM accounts WHERE username = ? LIMIT 1',
+        )
+        .bind(username)
+        .first<{
+          id: string;
+          passwordHash: string | null;
+          passwordSalt: string | null;
+          active: number;
+        }>();
+      const valid = Boolean(
+        user?.active &&
+        user.passwordHash &&
+        user.passwordSalt &&
+        (await verifyPassword(password, user.passwordHash, user.passwordSalt)),
+      );
+      if (!valid || !user)
+        return NextResponse.json(
+          { error: 'Usuário ou senha incorretos.' },
+          { status: 401 },
+        );
+      await db
+        .prepare('DELETE FROM sessions WHERE expires_at <= ?')
+        .bind(Date.now())
+        .run();
       await createSession(user.id);
       return NextResponse.json({ ok: true, message: 'Login realizado.' });
     }
@@ -42,11 +101,31 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: 'Ação desconhecida.' }, { status: 400 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Não foi possível continuar.';
-    return NextResponse.json({ error: message.includes('UNIQUE') ? 'Este nome de usuário já está em uso.' : message }, { status: 400 });
+    const message =
+      error instanceof Error ? error.message : 'Não foi possível continuar.';
+    return NextResponse.json(
+      {
+        error: message.includes('UNIQUE')
+          ? 'Este nome de usuário já está em uso.'
+          : message,
+      },
+      { status: 400 },
+    );
   }
 }
 
-function clean(value: unknown, max: number) { return String(value ?? '').trim().slice(0,max); }
-function required(value: unknown, max: number) { const text=clean(value,max); if(!text) throw new Error('Preencha todos os campos obrigatórios.'); return text; }
-function normalizePhone(value: string) { if(!value) return null; const digits=value.replace(/\D/g,''); return digits.startsWith('55')?digits:`55${digits}`; }
+function clean(value: unknown, max: number) {
+  return String(value ?? '')
+    .trim()
+    .slice(0, max);
+}
+function required(value: unknown, max: number) {
+  const text = clean(value, max);
+  if (!text) throw new Error('Preencha todos os campos obrigatórios.');
+  return text;
+}
+function normalizePhone(value: string) {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, '');
+  return digits.startsWith('55') ? digits : `55${digits}`;
+}

@@ -32,7 +32,7 @@ Write-Host 'Redefinição da senha do administrador' -ForegroundColor Cyan
 Write-Host 'A senha digitada ficará oculta.' -ForegroundColor DarkGray
 Write-Host ''
 
-$queryOutput = & npx.cmd wrangler d1 execute site-creator-d1 --local --command="SELECT id, username FROM users WHERE role = 'admin' LIMIT 1" --persist-to=.wrangler/state --json
+$queryOutput = & npx.cmd wrangler d1 execute site-creator-d1 --local --command="SELECT id, username FROM accounts WHERE role = 'admin' LIMIT 1" --persist-to=.wrangler/state --json
 if ($LASTEXITCODE -ne 0) {
   throw 'Não foi possível consultar o banco de dados local.'
 }
@@ -84,7 +84,7 @@ try {
   $passwordHash = [Convert]::ToBase64String($hashBytes)
   $passwordSalt = [Convert]::ToBase64String($saltBytes)
   $administratorId = ([string]$administrator.id).Replace("'", "''")
-  $sql = "UPDATE users SET password_hash = '$passwordHash', password_salt = '$passwordSalt' WHERE id = '$administratorId' AND role = 'admin'; DELETE FROM sessions WHERE user_id = '$administratorId';"
+  $sql = "UPDATE accounts SET password_hash = '$passwordHash', password_salt = '$passwordSalt' WHERE id = '$administratorId' AND role = 'admin'; DELETE FROM sessions WHERE user_id = '$administratorId';"
 
   $updateOutput = & npx.cmd wrangler d1 execute site-creator-d1 --local --command=$sql --persist-to=.wrangler/state --json
   if ($LASTEXITCODE -ne 0) {
