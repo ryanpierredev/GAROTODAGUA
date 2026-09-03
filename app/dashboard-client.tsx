@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   BellRing,
@@ -73,6 +73,13 @@ type Data = {
     memberName: string;
   }>;
 };
+type AlertItem = {
+  id: string;
+  title: string;
+  detail: string;
+  createdAt: number;
+  tone: 'sky' | 'amber' | 'green';
+};
 type Modal =
   | 'member'
   | 'account'
@@ -83,7 +90,11 @@ type Modal =
   | 'payment'
   | null;
 
-export function Dashboard({ identity }: { identity: { name: string } }) {
+export function Dashboard({
+  identity,
+}: {
+  identity: { id: string; name: string };
+}) {
   const [data, setData] = useState<Data | null>(null);
   const [modal, setModal] = useState<Modal>(null);
   const [selectedMemberId, setSelectedMemberId] = useState('');
@@ -91,6 +102,26 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [tab, setTab] = useState('Visão geral');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [lastSeenNotification, setLastSeenNotification] = useState(() =>
+    typeof window === 'undefined'
+      ? 0
+      : Number(
+          window.localStorage.getItem(
+            `cota-dagua-notifications-${identity.id}`,
+          ) ?? 0,
+        ),
+  );
+  const [desktopPermission, setDesktopPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >(() =>
+    typeof window === 'undefined'
+      ? 'default'
+      : 'Notification' in window
+        ? Notification.permission
+        : 'unsupported',
+  );
+  const notifiedThrough = useRef(0);
   const load = useCallback(async () => {
     const response = await fetch('/api/dashboard', { cache: 'no-store' });
     const json = await response.json();
@@ -107,6 +138,12 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
   }, []);
   useEffect(() => {
     load().catch((e) => setError(e.message));
+  }, [load]);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      load().catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(timer);
   }, [load]);
   const act = useCallback(
     async (body: Record<string, unknown>) => {
@@ -181,6 +218,56 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
     return () => lifecycle.abort();
   }, [act]);
 
+  const alertItems = useMemo<AlertItem[]>(() => {
+    if (!data) return [];
+    return [
+      ...data.events.map((event) => ({
+        id: `event-${event.id}`,
+        title:
+          event.kind === 'empty'
+            ? 'Garrafões vazios informados'
+            : 'Estoque atualizado',
+        detail:
+          event.kind === 'empty'
+            ? `${event.userName} informou ${event.quantity} garrafão(ões) vazio(s).`
+            : `${event.userName}: ${event.note || eventLabel(event.kind)}.`,
+        createdAt: event.createdAt,
+        tone: event.kind === 'empty' ? ('amber' as const) : ('sky' as const),
+      })),
+      ...data.notifications.map((notification) => ({
+        id: `whatsapp-${notification.id}`,
+        title:
+          notification.status === 'sent'
+            ? 'Mensagem enviada pelo WhatsApp'
+            : notification.status === 'failed'
+              ? 'Falha no envio pelo WhatsApp'
+              : 'Mensagem aguardando envio',
+        detail: `Destinatário: ${notification.memberName}.`,
+        createdAt: notification.createdAt,
+        tone:
+          notification.status === 'sent'
+            ? ('green' as const)
+            : ('amber' as const),
+      })),
+    ].sort((a, b) => b.createdAt - a.createdAt);
+  }, [data]);
+
+  useEffect(() => {
+    const latest = alertItems[0];
+    if (!latest) return;
+    if (notifiedThrough.current === 0) {
+      notifiedThrough.current = latest.createdAt;
+      return;
+    }
+    if (latest.createdAt <= notifiedThrough.current) return;
+    notifiedThrough.current = latest.createdAt;
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(latest.title, {
+        body: latest.detail,
+      });
+    }
+  }, [alertItems]);
+
   const admin = data?.account.role === 'admin';
   const clients = data?.members ?? [];
   const next = clients.find(
@@ -203,6 +290,43 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
     ...(admin ? ['Usuários de acesso'] : []),
   ];
   const shownMembers = tab === 'Visão geral' ? clients.slice(0, 5) : clients;
+  const unreadNotifications = alertItems.filter(
+    (item) => item.createdAt > lastSeenNotification,
+  ).length;
+  const markNotificationsRead = () => {
+    const newest = alertItems[0]?.createdAt ?? Date.now();
+    setLastSeenNotification(newest);
+    if (data?.account.id) {
+      window.localStorage.setItem(
+        `cota-dagua-notifications-${data.account.id}`,
+        String(newest),
+      );
+    }
+  };
+  const toggleNotifications = () => {
+    const willOpen = !notificationsOpen;
+    setNotificationsOpen(willOpen);
+    if (willOpen) markNotificationsRead();
+  };
+  const enableDesktopNotifications = async () => {
+    if (!('Notification' in window)) {
+      setDesktopPermission('unsupported');
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setDesktopPermission(permission);
+      setNotice(
+        permission === 'granted'
+          ? 'Avisos do navegador ativados.'
+          : 'O navegador não permitiu os avisos. O sininho continuará funcionando.',
+      );
+    } catch {
+      setNotice(
+        'O navegador não permite avisos neste endereço. O sininho continuará funcionando.',
+      );
+    }
+  };
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -222,15 +346,94 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              aria-label="Notificações"
-              className="relative grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600"
-            >
-              <BellRing size={18} />
-              {data?.notifications.some((n) => n.status !== 'sent') && (
-                <span className="absolute right-2 top-2 size-2 rounded-full bg-amber-500 ring-2 ring-white" />
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Abrir notificações"
+                aria-expanded={notificationsOpen}
+                onClick={toggleNotifications}
+                className="relative grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+              >
+                <BellRing size={18} />
+                {unreadNotifications > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 grid min-h-5 min-w-5 place-items-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-white ring-2 ring-white">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
+                )}
+              </button>
+              {notificationsOpen && (
+                <section className="absolute right-0 top-12 z-50 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl">
+                  <header className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
+                    <div>
+                      <h2 className="font-extrabold text-slate-950">
+                        Notificações
+                      </h2>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        Atualização automática a cada 15 segundos.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNotificationsOpen(false)}
+                      className="rounded-lg px-2 py-1 text-lg text-slate-400 hover:bg-slate-100"
+                      aria-label="Fechar notificações"
+                    >
+                      ×
+                    </button>
+                  </header>
+                  <div className="max-h-[22rem] overflow-y-auto">
+                    {alertItems.length === 0 ? (
+                      <Empty text="Nenhuma notificação ainda." />
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {alertItems.slice(0, 10).map((item) => (
+                          <article key={item.id} className="flex gap-3 p-4">
+                            <span
+                              className={`mt-1 size-2.5 shrink-0 rounded-full ${item.tone === 'amber' ? 'bg-amber-500' : item.tone === 'green' ? 'bg-emerald-500' : 'bg-sky-500'}`}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-slate-900">
+                                {item.title}
+                              </p>
+                              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                                {item.detail}
+                              </p>
+                              <time className="mt-1.5 block text-[11px] text-slate-400">
+                                {date(item.createdAt)}
+                              </time>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <footer className="border-t border-slate-100 bg-slate-50 p-3">
+                    {desktopPermission === 'granted' ? (
+                      <p className="text-center text-xs font-bold text-emerald-700">
+                        Avisos do navegador ativados
+                      </p>
+                    ) : desktopPermission === 'denied' ? (
+                      <p className="text-center text-xs text-amber-700">
+                        Avisos bloqueados no navegador. O sininho segue ativo.
+                      </p>
+                    ) : desktopPermission === 'unsupported' ? (
+                      <p className="text-center text-xs text-slate-500">
+                        O sininho está ativo neste dispositivo.
+                      </p>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 w-full rounded-xl bg-white text-xs font-bold"
+                        onClick={enableDesktopNotifications}
+                      >
+                        Ativar avisos do navegador
+                      </Button>
+                    )}
+                  </footer>
+                </section>
               )}
-            </button>
+            </div>
             <div className="hidden text-right sm:block">
               <p className="text-sm font-bold">
                 {data?.account.name || identity.name}
@@ -254,7 +457,7 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
       <div className="mx-auto grid max-w-[1480px] lg:grid-cols-[230px_1fr]">
         <aside className="hidden min-h-[calc(100vh-80px)] border-r border-sky-100 p-5 lg:block">
           <nav className="space-y-1.5" aria-label="Menu principal">
-            {tabs.map((item, i) => (
+            {tabs.map((item) => (
               <button
                 key={item}
                 onClick={() => setTab(item)}
