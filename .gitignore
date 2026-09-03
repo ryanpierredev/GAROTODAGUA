@@ -37,3 +37,8 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# local web service runtime
+/.cota-dagua-service.pid
+/.cota-dagua-service.log
+/.cota-dagua-service-error.log
