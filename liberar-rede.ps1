@@ -3,7 +3,7 @@ $ruleName = "Cota D'Agua - Rede Local"
 $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
 
 if ($existingRule) {
-  $existingRule | Set-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -Profile Private
+  $existingRule | Set-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -Profile Private,Domain
 } else {
   New-NetFirewallRule `
     -DisplayName $ruleName `
@@ -12,7 +12,7 @@ if ($existingRule) {
     -Action Allow `
     -Protocol TCP `
     -LocalPort 3000 `
-    -Profile Private `
+    -Profile Private,Domain `
     -RemoteAddress LocalSubnet | Out-Null
 }
 
