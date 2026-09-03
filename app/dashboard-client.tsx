@@ -25,6 +25,7 @@ type Member = {
   queuePosition: number;
   creditCents: number;
   active: number;
+  paymentStatus: 'pending' | 'paid' | null;
 };
 type Account = {
   id: string;
@@ -78,12 +79,14 @@ type Modal =
   | 'empty'
   | 'stock'
   | 'credit'
+  | 'edit_credit'
   | 'payment'
   | null;
 
 export function Dashboard({ identity }: { identity: { name: string } }) {
   const [data, setData] = useState<Data | null>(null);
   const [modal, setModal] = useState<Modal>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -187,6 +190,10 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
   const empty =
     (data?.settings.totalBottles ?? 0) - (data?.settings.fullBottles ?? 0);
   const firstName = (data?.account.name || identity.name).split(' ')[0];
+  const openForMember = (nextModal: Modal, memberId = '') => {
+    setSelectedMemberId(memberId);
+    setModal(nextModal);
+  };
   const tabs = [
     'Visão geral',
     'Garrafões',
@@ -406,8 +413,8 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
                 <Financeiro
                   data={data}
                   admin={admin}
-                  openCredit={() => setModal('credit')}
-                  openPayment={() => setModal('payment')}
+                  openCredit={() => openForMember('credit')}
+                  openPayment={() => openForMember('payment')}
                 />
               ) : tab === 'Histórico' ? (
                 <Historico data={data} />
@@ -422,7 +429,13 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
                     members={shownMembers}
                     next={next}
                     admin={admin}
-                    openCredit={() => setModal('credit')}
+                    openCredit={(id) => openForMember('credit', id)}
+                    editCredit={(id) => openForMember('edit_credit', id)}
+                    markPaid={(id) => openForMember('payment', id)}
+                    charge={(id) =>
+                      act({ action: 'charge_member', memberId: id, bottles: 1 })
+                    }
+                    busy={busy}
                     expanded={tab === 'Pessoas da cota'}
                   />
                   <div className="space-y-6">
@@ -501,6 +514,7 @@ export function Dashboard({ identity }: { identity: { name: string } }) {
         data={data}
         busy={busy}
         act={act}
+        selectedMemberId={selectedMemberId}
       />
     </main>
   );
@@ -585,12 +599,20 @@ function Members({
   next,
   admin,
   openCredit,
+  editCredit,
+  markPaid,
+  charge,
+  busy,
   expanded,
 }: {
   members: Member[];
   next?: Member;
   admin: boolean;
-  openCredit: () => void;
+  openCredit: (memberId?: string) => void;
+  editCredit: (memberId: string) => void;
+  markPaid: (memberId: string) => void;
+  charge: (memberId: string) => Promise<unknown>;
+  busy: boolean;
   expanded: boolean;
 }) {
   return (
@@ -604,7 +626,7 @@ function Members({
         </div>
         {admin && expanded && (
           <button
-            onClick={openCredit}
+            onClick={() => openCredit()}
             className="text-sm font-bold text-sky-700"
           >
             Lançar crédito
@@ -641,6 +663,48 @@ function Members({
               <p className="hidden text-right text-sm font-extrabold md:block">
                 {money(m.creditCents)}
               </p>
+              {admin && expanded && (
+                <div className="col-span-full flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                  <span
+                    className={`mr-auto rounded-full px-2.5 py-1 text-[11px] font-bold ${m.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-700' : m.paymentStatus === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
+                  >
+                    {m.paymentStatus === 'paid'
+                      ? 'Pagamento confirmado'
+                      : m.paymentStatus === 'pending'
+                        ? 'Aguardando pagamento'
+                        : 'Sem pagamento registrado'}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || !m.phone || m.paymentStatus === 'paid'}
+                    onClick={() => charge(m.id).catch(() => {})}
+                    title={m.phone ? 'Enviar cobrança' : 'Cadastre um WhatsApp'}
+                  >
+                    Cobrar no WhatsApp
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => editCredit(m.id)}
+                  >
+                    Editar crédito
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={() => markPaid(m.id)}
+                    disabled={busy || m.paymentStatus === 'paid'}
+                  >
+                    {m.paymentStatus === 'paid'
+                      ? 'Já está pago'
+                      : 'Marcar como pago'}
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -894,12 +958,14 @@ function Forms({
   data,
   busy,
   act,
+  selectedMemberId,
 }: {
   modal: Modal;
   setModal: (m: Modal) => void;
   data: Data | null;
   busy: boolean;
   act: (b: Record<string, unknown>) => Promise<unknown>;
+  selectedMemberId: string;
 }) {
   const submit = (action: string) => (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -1015,7 +1081,10 @@ function Forms({
         )}
         {modal === 'credit' && (
           <form onSubmit={submit('add_credit')} className="space-y-4">
-            <MemberSelect clients={clients} />
+            <MemberSelect
+              clients={clients}
+              selectedMemberId={selectedMemberId}
+            />
             <Field
               name="amount"
               label="Valor do crédito"
@@ -1027,9 +1096,41 @@ function Forms({
             <Submit busy={busy}>Adicionar crédito</Submit>
           </form>
         )}
+        {modal === 'edit_credit' && (
+          <form
+            key={selectedMemberId}
+            onSubmit={submit('edit_credit')}
+            className="space-y-4"
+          >
+            <MemberSelect
+              clients={clients}
+              selectedMemberId={selectedMemberId}
+            />
+            <Field
+              name="amount"
+              label="Novo saldo de crédito"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue={
+                (clients.find((member) => member.id === selectedMemberId)
+                  ?.creditCents ?? 0) / 100
+              }
+            />
+            <Field
+              name="note"
+              label="Motivo da correção (opcional)"
+              required={false}
+            />
+            <Submit busy={busy}>Salvar novo saldo</Submit>
+          </form>
+        )}
         {modal === 'payment' && (
           <form onSubmit={submit('record_payment')} className="space-y-4">
-            <MemberSelect clients={clients} />
+            <MemberSelect
+              clients={clients}
+              selectedMemberId={selectedMemberId}
+            />
             <Field
               name="bottles"
               label="Quantidade de garrafões"
@@ -1062,13 +1163,20 @@ function Field(props: React.ComponentProps<'input'> & { label: string }) {
     </div>
   );
 }
-function MemberSelect({ clients }: { clients: Member[] }) {
+function MemberSelect({
+  clients,
+  selectedMemberId = '',
+}: {
+  clients: Member[];
+  selectedMemberId?: string;
+}) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor="memberId">Pessoa</Label>
       <select
         id="memberId"
         name="memberId"
+        defaultValue={selectedMemberId}
         required
         className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
       >
@@ -1115,6 +1223,7 @@ function modalTitle(m: Modal) {
         empty: 'Informar garrafões vazios',
         stock: 'Configurar estoque',
         credit: 'Adicionar crédito',
+        edit_credit: 'Editar saldo de crédito',
         payment: 'Registrar pagamento',
       } as Record<string, string>
     )[m || ''] || ''
@@ -1129,6 +1238,8 @@ function modalDescription(m: Modal) {
         empty: 'O estoque será atualizado e o administrador verá o registro.',
         stock: 'Defina quantidade, valor e limite de alerta.',
         credit: 'O lançamento ficará salvo no histórico financeiro.',
+        edit_credit:
+          'Defina o saldo correto. A diferença ficará registrada no histórico.',
         payment: 'O crédito será aplicado e a fila avançará automaticamente.',
       } as Record<string, string>
     )[m || ''] || ''

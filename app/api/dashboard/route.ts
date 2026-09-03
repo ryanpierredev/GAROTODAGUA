@@ -41,7 +41,7 @@ export async function GET() {
       'SELECT total_bottles AS totalBottles, full_bottles AS fullBottles, bottle_price_cents AS bottlePriceCents, alert_threshold AS alertThreshold, next_queue_position AS nextQueuePosition FROM settings WHERE id = 1',
     ),
     db.prepare(
-      `SELECT id, name, phone, queue_position AS queuePosition, credit_cents AS creditCents, active FROM users WHERE role = 'client' ORDER BY queue_position, name`,
+      `SELECT u.id, u.name, u.phone, u.queue_position AS queuePosition, u.credit_cents AS creditCents, u.active, (SELECT p.status FROM payments p WHERE p.member_id = u.id ORDER BY p.created_at DESC, p.id DESC LIMIT 1) AS paymentStatus FROM users u WHERE u.role = 'client' ORDER BY u.queue_position, u.name`,
     ),
     db.prepare(
       `SELECT p.id, p.member_id AS memberId, u.name AS memberName, p.bottles, p.total_cents AS totalCents, p.credit_used_cents AS creditUsedCents, p.paid_cents AS paidCents, p.status, p.paid_at AS paidAt, p.created_at AS createdAt FROM payments p JOIN users u ON u.id = p.member_id ORDER BY p.created_at DESC LIMIT 12`,
@@ -94,8 +94,10 @@ export async function POST(request: Request) {
     'add_account',
     'set_stock',
     'add_credit',
+    'edit_credit',
     'record_payment',
     'send_notification',
+    'charge_member',
   ];
   if (adminOnly.includes(action) && account.role !== 'admin')
     return NextResponse.json(
@@ -246,6 +248,43 @@ export async function POST(request: Request) {
       });
     }
 
+    if (action === 'edit_credit') {
+      const memberId = requiredText(body.memberId, 100);
+      const newBalance = nonNegativeMoneyToCents(body.amount);
+      const member = await db
+        .prepare(
+          `SELECT id, name, credit_cents AS creditCents FROM users WHERE id = ? AND role = 'client'`,
+        )
+        .bind(memberId)
+        .first<{ id: string; name: string; creditCents: number }>();
+      if (!member) throw new Error('Pessoa da cota não encontrada.');
+      const difference = newBalance - Number(member.creditCents);
+      if (difference !== 0) {
+        await db.batch([
+          db
+            .prepare(
+              `UPDATE users SET credit_cents = ? WHERE id = ? AND role = 'client'`,
+            )
+            .bind(newBalance, memberId),
+          db
+            .prepare(
+              `INSERT INTO credit_transactions (member_id, amount_cents, kind, note, created_at) VALUES (?, ?, 'adjustment', ?, ?)`,
+            )
+            .bind(
+              memberId,
+              difference,
+              cleanText(body.note, 180) ||
+                'Saldo de crédito corrigido pelo administrador',
+              Date.now(),
+            ),
+        ]);
+      }
+      return NextResponse.json({
+        ok: true,
+        message: `Crédito de ${member.name} atualizado para ${formatMoney(newBalance)}.`,
+      });
+    }
+
     if (action === 'record_payment') {
       const memberId = requiredText(body.memberId, 100);
       const bottles = positiveInt(body.bottles, 1, 100);
@@ -274,6 +313,16 @@ export async function POST(request: Request) {
         )
         .bind(memberId)
         .first<{ id: number; totalCents: number; creditUsedCents: number }>();
+      if (!pending) {
+        const latest = await db
+          .prepare(
+            `SELECT status FROM payments WHERE member_id = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
+          )
+          .bind(memberId)
+          .first<{ status: 'pending' | 'paid' }>();
+        if (latest?.status === 'paid')
+          throw new Error(`${member.name} já está marcado como pago.`);
+      }
       let totalCents: number;
       let creditUsed: number;
       if (pending) {
@@ -390,25 +439,34 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === 'send_notification') {
+    if (action === 'send_notification' || action === 'charge_member') {
       const config = await db
         .prepare(
           'SELECT next_queue_position AS nextQueuePosition, bottle_price_cents AS bottlePriceCents FROM settings WHERE id = 1',
         )
         .first<{ nextQueuePosition: number; bottlePriceCents: number }>();
+      const selectedMemberId =
+        action === 'charge_member' ? requiredText(body.memberId, 100) : null;
       const member = await db
         .prepare(
-          `SELECT id, name, phone, credit_cents AS creditCents FROM users WHERE role = 'client' AND active = 1 AND queue_position = ?`,
+          selectedMemberId
+            ? `SELECT u.id, u.name, u.phone, u.credit_cents AS creditCents, (SELECT p.status FROM payments p WHERE p.member_id = u.id ORDER BY p.created_at DESC, p.id DESC LIMIT 1) AS paymentStatus FROM users u WHERE u.id = ? AND u.role = 'client' AND u.active = 1`
+            : `SELECT u.id, u.name, u.phone, u.credit_cents AS creditCents, (SELECT p.status FROM payments p WHERE p.member_id = u.id ORDER BY p.created_at DESC, p.id DESC LIMIT 1) AS paymentStatus FROM users u WHERE u.role = 'client' AND u.active = 1 AND u.queue_position = ?`,
         )
-        .bind(config?.nextQueuePosition ?? 1)
+        .bind(selectedMemberId ?? config?.nextQueuePosition ?? 1)
         .first<{
           id: string;
           name: string;
           phone: string | null;
           creditCents: number;
+          paymentStatus: 'pending' | 'paid' | null;
         }>();
       if (!member)
         throw new Error('Nenhuma pessoa ativa está marcada como próxima.');
+      if (!member.phone)
+        throw new Error('Cadastre o WhatsApp dessa pessoa antes de cobrar.');
+      if (action === 'charge_member' && member.paymentStatus === 'paid')
+        throw new Error(`${member.name} já está marcado como pago.`);
       const bottles = positiveInt(body.bottles, 1, 100);
       const pending = await db
         .prepare(
@@ -473,8 +531,8 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ok: true,
         message: result.sent
-          ? 'Mensagem enviada pelo WhatsApp.'
-          : 'Mensagem colocada na fila. Configure a API do WhatsApp para envio automático.',
+          ? `Cobrança enviada para ${member.name} pelo WhatsApp.`
+          : `Cobrança de ${member.name} preparada para abrir no WhatsApp.`,
         whatsappUrl: result.url,
       });
     }
@@ -623,6 +681,12 @@ function moneyToCents(value: unknown) {
   const number = Number(String(value ?? '').replace(',', '.'));
   if (!Number.isFinite(number) || number <= 0)
     throw new Error('Informe um valor válido.');
+  return Math.round(number * 100);
+}
+function nonNegativeMoneyToCents(value: unknown) {
+  const number = Number(String(value ?? '').replace(',', '.'));
+  if (!Number.isFinite(number) || number < 0)
+    throw new Error('Informe um valor de crédito válido.');
   return Math.round(number * 100);
 }
 function normalizePhone(value: string) {
