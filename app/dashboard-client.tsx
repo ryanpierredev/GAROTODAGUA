@@ -881,7 +881,7 @@ function Members({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={busy || !m.phone || m.paymentStatus === 'paid'}
+                    disabled={busy || !m.phone}
                     onClick={() => charge(m.id).catch(() => {})}
                     title={m.phone ? 'Enviar cobrança' : 'Cadastre um WhatsApp'}
                   >

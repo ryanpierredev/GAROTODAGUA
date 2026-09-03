@@ -465,8 +465,6 @@ export async function POST(request: Request) {
         throw new Error('Nenhuma pessoa ativa está marcada como próxima.');
       if (!member.phone)
         throw new Error('Cadastre o WhatsApp dessa pessoa antes de cobrar.');
-      if (action === 'charge_member' && member.paymentStatus === 'paid')
-        throw new Error(`${member.name} já está marcado como pago.`);
       const bottles = positiveInt(body.bottles, 1, 100);
       const pending = await db
         .prepare(
