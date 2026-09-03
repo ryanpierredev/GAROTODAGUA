@@ -1,26 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { getSessionUser, hashPassword, normalizeUsername } from '@/app/local-auth';
 import { getDatabase, getWhatsAppConfig } from '@/db/binding';
 
-type Member = { id: string; name: string; email: string; phone: string | null; role: 'admin' | 'client'; queuePosition: number; creditCents: number; active: number };
+type Member = { id: string; username: string; name: string; email: string; phone: string | null; role: 'admin' | 'client'; queuePosition: number; creditCents: number; active: number };
 
 async function currentAccount() {
-  const identity = await getChatGPTUser();
-  if (!identity) return null;
+  const account = await getSessionUser();
+  if (!account) return null;
   const db = getDatabase();
-  const count = await db.prepare('SELECT COUNT(*) AS total FROM users').first<{ total: number }>();
-  const role = Number(count?.total ?? 0) === 0 ? 'admin' : 'client';
-  const email = identity.email.toLowerCase();
-  const linked = await db.prepare('SELECT id FROM users WHERE auth_user_id = ? OR email = ? LIMIT 1').bind(identity.userId, email).first<{id:string}>();
-  if (linked) {
-    await db.prepare('UPDATE users SET auth_user_id = ?, name = ? WHERE id = ?').bind(identity.userId, identity.fullName ?? identity.displayName, linked.id).run();
-  } else {
-    await db.prepare(`INSERT INTO users (id, auth_user_id, email, name, role, queue_position, credit_cents, active, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, 1, ?)`)
-      .bind(identity.userId, identity.userId, email, identity.fullName ?? identity.displayName, role, role === 'admin' ? 0 : Number(count?.total ?? 0), Date.now()).run();
-  }
   await db.prepare(`INSERT OR IGNORE INTO settings (id, total_bottles, full_bottles, bottle_price_cents, alert_threshold, next_queue_position, updated_at) VALUES (1, 0, 0, 2000, 3, 1, ?)`)
     .bind(Date.now()).run();
-  return await db.prepare('SELECT id, email, name, phone, role, queue_position AS queuePosition, credit_cents AS creditCents, active FROM users WHERE auth_user_id = ? OR email = ? LIMIT 1').bind(identity.userId, email).first<Member>();
+  return account;
 }
 
 export async function GET() {
@@ -29,7 +19,7 @@ export async function GET() {
   const db = getDatabase();
   const [settings, members, payments, events, notifications] = await db.batch([
     db.prepare('SELECT total_bottles AS totalBottles, full_bottles AS fullBottles, bottle_price_cents AS bottlePriceCents, alert_threshold AS alertThreshold, next_queue_position AS nextQueuePosition FROM settings WHERE id = 1'),
-    db.prepare('SELECT id, name, email, phone, role, queue_position AS queuePosition, credit_cents AS creditCents, active FROM users ORDER BY CASE WHEN queue_position = 0 THEN 1 ELSE 0 END, queue_position, name'),
+    db.prepare('SELECT id, username, name, email, phone, role, queue_position AS queuePosition, credit_cents AS creditCents, active FROM users ORDER BY CASE WHEN queue_position = 0 THEN 1 ELSE 0 END, queue_position, name'),
     db.prepare(`SELECT p.id, p.member_id AS memberId, u.name AS memberName, p.bottles, p.total_cents AS totalCents, p.credit_used_cents AS creditUsedCents, p.paid_cents AS paidCents, p.status, p.paid_at AS paidAt, p.created_at AS createdAt FROM payments p JOIN users u ON u.id = p.member_id ORDER BY p.created_at DESC LIMIT 12`),
     db.prepare(`SELECT e.id, e.kind, e.quantity, e.note, e.created_at AS createdAt, u.name AS userName FROM bottle_events e JOIN users u ON u.id = e.user_id ORDER BY e.created_at DESC LIMIT 12`),
     db.prepare(`SELECT n.id, n.status, n.message, n.created_at AS createdAt, u.name AS memberName FROM notifications n JOIN users u ON u.id = n.member_id ORDER BY n.created_at DESC LIMIT 8`),
@@ -70,10 +60,10 @@ export async function POST(request: Request) {
     }
 
     if (action === 'add_member') {
-      const name = requiredText(body.name, 80); const email = requiredText(body.email, 120).toLowerCase(); const phone = requiredText(body.phone, 24);
+      const name = requiredText(body.name, 80); const username = normalizeUsername(body.username); const password = requiredText(body.password, 200); const phone = requiredText(body.phone, 24); const credentials = await hashPassword(password);
       const max = await db.prepare('SELECT COALESCE(MAX(queue_position), 0) AS maxPosition FROM users').first<{ maxPosition: number }>();
       const id = `member_${crypto.randomUUID()}`;
-      await db.prepare(`INSERT INTO users (id, email, name, phone, role, queue_position, credit_cents, active, created_at) VALUES (?, ?, ?, ?, 'client', ?, 0, 1, ?)`).bind(id, email, name, normalizePhone(phone), Number(max?.maxPosition ?? 0) + 1, Date.now()).run();
+      await db.prepare(`INSERT INTO users (id, username, email, name, phone, role, queue_position, credit_cents, active, password_hash, password_salt, created_at) VALUES (?, ?, ?, ?, ?, 'client', ?, 0, 1, ?, ?, ?)`).bind(id, username, `${username}@local.cota`, name, normalizePhone(phone), Number(max?.maxPosition ?? 0) + 1, credentials.hash, credentials.salt, Date.now()).run();
       return NextResponse.json({ ok: true, message: `${name} entrou na cota.` });
     }
 

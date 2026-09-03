@@ -3,6 +3,9 @@ import { integer, sqliteTable, text, index, uniqueIndex } from 'drizzle-orm/sqli
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
   authUserId: text('auth_user_id'),
+  username: text('username'),
+  passwordHash: text('password_hash'),
+  passwordSalt: text('password_salt'),
   email: text('email').notNull(),
   name: text('name').notNull(),
   phone: text('phone'),
@@ -11,7 +14,14 @@ export const users = sqliteTable('users', {
   creditCents: integer('credit_cents').notNull().default(0),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at').notNull(),
-}, (table) => [uniqueIndex('idx_users_email').on(table.email), uniqueIndex('idx_users_auth_user_id').on(table.authUserId), index('idx_users_queue_active').on(table.active, table.queuePosition)]);
+}, (table) => [uniqueIndex('idx_users_email').on(table.email), uniqueIndex('idx_users_auth_user_id').on(table.authUserId), uniqueIndex('idx_users_username').on(table.username), index('idx_users_queue_active').on(table.active, table.queuePosition)]);
+
+export const sessions = sqliteTable('sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (table) => [index('idx_sessions_user').on(table.userId), index('idx_sessions_expires').on(table.expiresAt)]);
 
 export const settings = sqliteTable('settings', {
   id: integer('id').primaryKey(),
