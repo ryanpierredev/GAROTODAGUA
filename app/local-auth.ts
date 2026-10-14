@@ -56,7 +56,7 @@ export async function createSession(userId: string) {
   const now = Date.now();
   await getDatabase()
     .prepare(
-      'INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
+      "INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES ($1, $2, $3, $4)",
     )
     .bind(tokenHash, userId, now + SESSION_DAYS * 86400000, now)
     .run();
@@ -75,7 +75,7 @@ export async function destroySession() {
   const token = jar.get(COOKIE_NAME)?.value;
   if (token)
     await getDatabase()
-      .prepare('DELETE FROM sessions WHERE token_hash = ?')
+      .prepare("DELETE FROM sessions WHERE token_hash = $1")
       .bind(await sha256(token))
       .run();
   jar.set(COOKIE_NAME, '', {
@@ -94,7 +94,7 @@ export async function getSessionUser(): Promise<LocalUser | null> {
   const db = getDatabase();
   const user = await db
     .prepare(
-      `SELECT a.id, a.username, a.name, a.phone, a.role, a.active FROM sessions s JOIN accounts a ON a.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ? AND a.active = 1 LIMIT 1`,
+      "SELECT a.id, a.username, a.name, a.phone, a.role, a.active FROM sessions s JOIN accounts a ON a.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > $2 AND a.active = 1 LIMIT 1",
     )
     .bind(await sha256(token), now)
     .first<LocalUser>();
@@ -105,7 +105,7 @@ export async function getSessionUser(): Promise<LocalUser | null> {
 export async function setupRequired() {
   const row = await getDatabase()
     .prepare(
-      `SELECT COUNT(*) AS total FROM accounts WHERE role = 'admin' AND password_hash IS NOT NULL`,
+      "SELECT COUNT(*) AS \"total\" FROM accounts WHERE role = 'admin' AND password_hash IS NOT NULL",
     )
     .first<{ total: number }>();
   return Number(row?.total ?? 0) === 0;

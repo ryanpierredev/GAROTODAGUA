@@ -1,11 +1,24 @@
-import { env } from 'cloudflare:workers';
+import { createPool, Database } from './postgres';
 
-export function getDatabase(): D1Database {
-  if (!env.DB) throw new Error('Banco de dados indisponível.');
-  return env.DB;
+const runtime = globalThis as typeof globalThis & {
+  garotodaguaPool?: ReturnType<typeof createPool>;
+};
+
+export function getPool() {
+  if (!process.env.PGDATABASE || !process.env.PGUSER) {
+    throw new Error('Configure PGDATABASE e PGUSER para acessar o PostgreSQL.');
+  }
+  return (runtime.garotodaguaPool ??= createPool());
+}
+
+export function getDatabase() {
+  return new Database(getPool());
 }
 
 export function getWhatsAppConfig() {
-  const runtime = env as unknown as { WHATSAPP_TOKEN?: string; WHATSAPP_PHONE_NUMBER_ID?: string; WHATSAPP_API_VERSION?: string };
-  return { token: runtime.WHATSAPP_TOKEN, phoneNumberId: runtime.WHATSAPP_PHONE_NUMBER_ID, apiVersion: runtime.WHATSAPP_API_VERSION ?? 'v23.0' };
+  return {
+    token: process.env.WHATSAPP_TOKEN,
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    apiVersion: process.env.WHATSAPP_API_VERSION ?? 'v23.0',
+  };
 }

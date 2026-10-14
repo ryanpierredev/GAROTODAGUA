@@ -42,3 +42,12 @@ next-env.d.ts
 /.cota-dagua-service.pid
 /.cota-dagua-service.log
 /.cota-dagua-service-error.log
+
+# TypeScript cache and local database/backup files
+*.tsbuildinfo
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+/backups/
+*.dump

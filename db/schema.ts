@@ -1,12 +1,14 @@
 import {
   integer,
-  sqliteTable,
+  serial,
+  bigint,
+  pgTable,
   text,
   index,
   uniqueIndex,
-} from 'drizzle-orm/sqlite-core';
+} from 'drizzle-orm/pg-core';
 
-export const users = sqliteTable(
+export const users = pgTable(
   'users',
   {
     id: text('id').primaryKey(),
@@ -22,8 +24,8 @@ export const users = sqliteTable(
       .default('client'),
     queuePosition: integer('queue_position').notNull().default(0),
     creditCents: integer('credit_cents').notNull().default(0),
-    active: integer('active', { mode: 'boolean' }).notNull().default(true),
-    createdAt: integer('created_at').notNull(),
+    active: integer('active').notNull().default(1),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (table) => [
     uniqueIndex('idx_users_email').on(table.email),
@@ -33,7 +35,7 @@ export const users = sqliteTable(
   ],
 );
 
-export const accounts = sqliteTable(
+export const accounts = pgTable(
   'accounts',
   {
     id: text('id').primaryKey(),
@@ -45,8 +47,8 @@ export const accounts = sqliteTable(
     role: text('role', { enum: ['admin', 'client'] })
       .notNull()
       .default('client'),
-    active: integer('active', { mode: 'boolean' }).notNull().default(true),
-    createdAt: integer('created_at').notNull(),
+    active: integer('active').notNull().default(1),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (table) => [
     uniqueIndex('idx_accounts_username').on(table.username),
@@ -54,15 +56,15 @@ export const accounts = sqliteTable(
   ],
 );
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   'sessions',
   {
     tokenHash: text('token_hash').primaryKey(),
     userId: text('user_id')
       .notNull()
       .references(() => accounts.id),
-    expiresAt: integer('expires_at').notNull(),
-    createdAt: integer('created_at').notNull(),
+    expiresAt: bigint('expires_at', { mode: 'number' }).notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (table) => [
     index('idx_sessions_user').on(table.userId),
@@ -70,27 +72,27 @@ export const sessions = sqliteTable(
   ],
 );
 
-export const settings = sqliteTable('settings', {
+export const settings = pgTable('settings', {
   id: integer('id').primaryKey(),
   totalBottles: integer('total_bottles').notNull().default(0),
   fullBottles: integer('full_bottles').notNull().default(0),
   bottlePriceCents: integer('bottle_price_cents').notNull().default(2000),
   alertThreshold: integer('alert_threshold').notNull().default(3),
   nextQueuePosition: integer('next_queue_position').notNull().default(1),
-  updatedAt: integer('updated_at').notNull(),
+  updatedAt: bigint('updated_at', { mode: 'number' }).notNull(),
 });
 
-export const bottleEvents = sqliteTable(
+export const bottleEvents = pgTable(
   'bottle_events',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     accountId: text('account_id')
       .notNull()
       .references(() => accounts.id),
     kind: text('kind', { enum: ['empty', 'restock', 'adjustment'] }).notNull(),
     quantity: integer('quantity').notNull(),
     note: text('note'),
-    createdAt: integer('created_at').notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (table) => [
     index('idx_bottle_events_created').on(table.createdAt),
@@ -98,10 +100,10 @@ export const bottleEvents = sqliteTable(
   ],
 );
 
-export const payments = sqliteTable(
+export const payments = pgTable(
   'payments',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     memberId: text('member_id')
       .notNull()
       .references(() => users.id),
@@ -112,8 +114,8 @@ export const payments = sqliteTable(
     status: text('status', { enum: ['pending', 'paid'] })
       .notNull()
       .default('pending'),
-    paidAt: integer('paid_at'),
-    createdAt: integer('created_at').notNull(),
+    paidAt: bigint('paid_at', { mode: 'number' }),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (table) => [
     index('idx_payments_member_created').on(table.memberId, table.createdAt),
@@ -121,10 +123,10 @@ export const payments = sqliteTable(
   ],
 );
 
-export const creditTransactions = sqliteTable(
+export const creditTransactions = pgTable(
   'credit_transactions',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     memberId: text('member_id')
       .notNull()
       .references(() => users.id),
@@ -132,17 +134,17 @@ export const creditTransactions = sqliteTable(
     amountCents: integer('amount_cents').notNull(),
     kind: text('kind', { enum: ['credit', 'usage', 'adjustment'] }).notNull(),
     note: text('note').notNull(),
-    createdAt: integer('created_at').notNull(),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
   },
   (table) => [
     index('idx_credit_member_created').on(table.memberId, table.createdAt),
   ],
 );
 
-export const notifications = sqliteTable(
+export const notifications = pgTable(
   'notifications',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: serial('id').primaryKey(),
     memberId: text('member_id')
       .notNull()
       .references(() => users.id),
@@ -153,8 +155,8 @@ export const notifications = sqliteTable(
       .default('queued'),
     providerId: text('provider_id'),
     error: text('error'),
-    createdAt: integer('created_at').notNull(),
-    attemptedAt: integer('attempted_at'),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    attemptedAt: bigint('attempted_at', { mode: 'number' }),
   },
   (table) => [
     index('idx_notifications_status_created').on(table.status, table.createdAt),

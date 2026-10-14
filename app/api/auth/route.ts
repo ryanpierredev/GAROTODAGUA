@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       const id = `admin_${crypto.randomUUID()}`;
       await db
         .prepare(
-          `INSERT INTO accounts (id, username, name, phone, role, active, password_hash, password_salt, created_at) VALUES (?, ?, ?, ?, 'admin', 1, ?, ?, ?)`,
+          "INSERT INTO accounts (id, username, name, phone, role, active, password_hash, password_salt, created_at) VALUES ($1, $2, $3, $4, 'admin', 1, $5, $6, $7)",
         )
         .bind(
           id,
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         .run();
       await db
         .prepare(
-          `INSERT OR IGNORE INTO settings (id, total_bottles, full_bottles, bottle_price_cents, alert_threshold, next_queue_position, updated_at) VALUES (1, 0, 0, 2000, 3, 1, ?)`,
+          "INSERT INTO settings (id, total_bottles, full_bottles, bottle_price_cents, alert_threshold, next_queue_position, updated_at) VALUES (1, 0, 0, 2000, 3, 1, $1) ON CONFLICT (id) DO NOTHING",
         )
         .bind(Date.now())
         .run();
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       const password = required(body.password, 200);
       const user = await db
         .prepare(
-          'SELECT id, password_hash AS passwordHash, password_salt AS passwordSalt, active FROM accounts WHERE username = ? LIMIT 1',
+          "SELECT id, password_hash AS \"passwordHash\", password_salt AS \"passwordSalt\", active FROM accounts WHERE username = $1 LIMIT 1",
         )
         .bind(username)
         .first<{
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
           { status: 401 },
         );
       await db
-        .prepare('DELETE FROM sessions WHERE expires_at <= ?')
+        .prepare("DELETE FROM sessions WHERE expires_at <= $1")
         .bind(Date.now())
         .run();
       await createSession(user.id);
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       error instanceof Error ? error.message : 'Não foi possível continuar.';
     return NextResponse.json(
       {
-        error: message.includes('UNIQUE')
+        error: (message.includes('UNIQUE') || (error as { code?: string })?.code === '23505')
           ? 'Este nome de usuário já está em uso.'
           : message,
       },
