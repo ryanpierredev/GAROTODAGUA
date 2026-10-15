@@ -36,13 +36,16 @@ systemctl is-active --quiet garotodagua-postgres && new_active=true
 systemctl is-enabled --quiet garotodagua && old_enabled=true
 systemctl is-enabled --quiet garotodagua-postgres && new_enabled=true
 
-sudo -v
+sudo -n true || {
+  echo 'Este instalador requer permissões sudo sem senha para administrar o serviço.' >&2
+  exit 1
+}
 scratch_dir="$(mktemp -d)"
 had_unit=false
-if sudo test -f "$unit"; then
+if sudo -n test -f "$unit"; then
   had_unit=true
-  sudo cp -p "$unit" "$scratch_dir/previous.service"
-  sudo cp -p "$unit" "$unit.backup-$(date +%Y%m%d-%H%M%S)"
+  sudo -n cp -p "$unit" "$scratch_dir/previous.service"
+  sudo -n cp -p "$unit" "$unit.backup-$(date +%Y%m%d-%H%M%S)"
 fi
 
 switching=false
@@ -51,25 +54,25 @@ finish() {
   trap - EXIT
   if [[ "$switching" == true && $result != 0 ]]; then
     echo 'Falha na ativação. Restaurando a configuração anterior.' >&2
-    sudo journalctl -u garotodagua-postgres -n 40 --no-pager >&2 || true
-    sudo systemctl stop garotodagua-postgres || true
+    sudo -n journalctl -u garotodagua-postgres -n 40 --no-pager >&2 || true
+    sudo -n systemctl stop garotodagua-postgres || true
     if [[ "$had_unit" == true ]]; then
-      sudo cp -p "$scratch_dir/previous.service" "$unit" || true
+      sudo -n cp -p "$scratch_dir/previous.service" "$unit" || true
     else
-      sudo systemctl disable garotodagua-postgres || true
-      sudo rm -f "$unit" || true
+      sudo -n systemctl disable garotodagua-postgres || true
+      sudo -n rm -f "$unit" || true
     fi
-    sudo systemctl daemon-reload || true
+    sudo -n systemctl daemon-reload || true
     if [[ "$new_enabled" == true ]]; then
-      sudo systemctl enable garotodagua-postgres || true
+      sudo -n systemctl enable garotodagua-postgres || true
     else
-      sudo systemctl disable garotodagua-postgres || true
+      sudo -n systemctl disable garotodagua-postgres || true
     fi
-    if [[ "$old_enabled" == true ]]; then sudo systemctl enable garotodagua || true; fi
-    if [[ "$new_active" == true ]]; then sudo systemctl start garotodagua-postgres || true; fi
-    if [[ "$old_active" == true ]]; then sudo systemctl start garotodagua || true; fi
+    if [[ "$old_enabled" == true ]]; then sudo -n systemctl enable garotodagua || true; fi
+    if [[ "$new_active" == true ]]; then sudo -n systemctl start garotodagua-postgres || true; fi
+    if [[ "$old_active" == true ]]; then sudo -n systemctl start garotodagua || true; fi
   fi
-  sudo rm -rf -- "$scratch_dir"
+  sudo -n rm -rf -- "$scratch_dir"
   exit "$result"
 }
 trap finish EXIT
@@ -97,10 +100,10 @@ WantedBy=multi-user.target
 EOF
 
 switching=true
-sudo install -m 644 "$scratch_dir/new.service" "$unit"
-sudo systemctl daemon-reload
-if [[ "$old_active" == true ]]; then sudo systemctl stop garotodagua; fi
-sudo systemctl restart garotodagua-postgres
+sudo -n install -m 644 "$scratch_dir/new.service" "$unit"
+sudo -n systemctl daemon-reload
+if [[ "$old_active" == true ]]; then sudo -n systemctl stop garotodagua; fi
+sudo -n systemctl restart garotodagua-postgres
 
 ready=false
 for ((attempt = 0; attempt < 20; attempt++)); do
@@ -113,8 +116,8 @@ for ((attempt = 0; attempt < 20; attempt++)); do
 done
 [[ "$ready" == true ]] || { echo 'A aplicação não retornou HTTP 200.' >&2; exit 1; }
 
-sudo systemctl enable garotodagua-postgres
-if [[ "$old_enabled" == true ]]; then sudo systemctl disable garotodagua; fi
+sudo -n systemctl enable garotodagua-postgres
+if [[ "$old_enabled" == true ]]; then sudo -n systemctl disable garotodagua; fi
 switching=false
 echo 'Serviço PostgreSQL ativo, HTTP 200 na porta 3002 e início automático habilitado.'
 echo 'Você pode fechar o terminal SSH.'

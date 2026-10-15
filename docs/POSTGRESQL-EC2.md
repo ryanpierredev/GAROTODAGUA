@@ -103,7 +103,7 @@ bash scripts/install-ec2-service.sh
 ```
 
 Execute como o usuário da aplicação, sem `sudo` antes de `bash`. O instalador
-solicita sudo apenas para administrar o serviço, verifica HTTP 200 na porta 3002,
+usa sudo sem solicitar senha (e exige permissões correspondentes), verifica HTTP 200 na porta 3002,
 habilita início automático e restaura a configuração anterior se a ativação falhar.
 Ele não aplica migrações nem importa ou apaga dados. Não execute também a
 instalação manual abaixo se já usou o instalador.
