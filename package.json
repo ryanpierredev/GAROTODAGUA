@@ -16,7 +16,9 @@
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate-postgres.mjs",
     "db:import-d1": "node --env-file-if-exists=.env --experimental-sqlite scripts/import-d1.mjs",
     "test:postgres": "node --experimental-strip-types --experimental-sqlite --test tests/postgres.test.mjs",
-    "test:smoke": "node scripts/smoke-postgres.mjs"
+    "test:smoke": "node scripts/smoke-postgres.mjs",
+    "whatsapp:worker": "node --env-file-if-exists=.env scripts/whatsapp-worker.mjs",
+    "test:whatsapp": "node --test tests/whatsapp.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

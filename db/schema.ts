@@ -163,3 +163,31 @@ export const notifications = pgTable(
     index('idx_notifications_member').on(table.memberId),
   ],
 );
+
+// Independent outbox for the administrator's WhatsApp alerts. Customer billing
+// notifications above keep their own status and destination.
+export const adminWhatsappAlerts = pgTable(
+  'admin_whatsapp_alerts',
+  {
+    id: serial('id').primaryKey(),
+    eventKey: text('event_key').notNull(),
+    title: text('title').notNull(),
+    detail: text('detail').notNull(),
+    status: text('status').notNull().default('pending'),
+    recipient: text('recipient'),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: bigint('next_attempt_at', { mode: 'number' })
+      .notNull()
+      .default(0),
+    leaseToken: text('lease_token'),
+    leaseUntil: bigint('lease_until', { mode: 'number' }),
+    providerId: text('provider_id'),
+    error: text('error'),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+    submittedAt: bigint('submitted_at', { mode: 'number' }),
+  },
+  (table) => [
+    uniqueIndex('idx_admin_alert_event').on(table.eventKey),
+    index('idx_admin_alert_pending').on(table.status, table.nextAttemptAt),
+  ],
+);

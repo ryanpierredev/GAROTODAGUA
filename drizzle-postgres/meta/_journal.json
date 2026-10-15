@@ -8,6 +8,13 @@
       "when": 1792012220167,
       "tag": "0000_dapper_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792103599749,
+      "tag": "0001_admin_whatsapp_alerts",
+      "breakpoints": true
     }
   ]
 }

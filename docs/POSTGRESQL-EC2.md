@@ -1,5 +1,9 @@
 # GAROTODAGUA no PostgreSQL da EC2
 
+Para receber os avisos do sistema pelo WhatsApp do administrador, consulte
+[Configurar alertas WhatsApp](WHATSAPP.md). O envio depende da conta Meta e de
+um modelo aprovado, e utiliza um serviço separado.
+
 Esta versão executa Vinext como servidor Node de produção, sem Wrangler. O Nginx
 continua encaminhando a porta 8080 para `127.0.0.1:3002`. Requer Node >=22.13,
 PostgreSQL e o usuário/banco `garotodagua` já criados. A porta 5432 deve continuar
