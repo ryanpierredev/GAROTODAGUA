@@ -94,6 +94,20 @@ depois de decidir começar um banco novo.
 
 ## Ativar sem manter terminal aberto
 
+Após configurar o `.env`, concluir o build e decidir a importação dos dados,
+é possível instalar e ativar o serviço automaticamente:
+
+```bash
+cd ~/apps/garotodagua-postgres
+bash scripts/install-ec2-service.sh
+```
+
+Execute como o usuário da aplicação, sem `sudo` antes de `bash`. O instalador
+solicita sudo apenas para administrar o serviço, verifica HTTP 200 na porta 3002,
+habilita início automático e restaura a configuração anterior se a ativação falhar.
+Ele não aplica migrações nem importa ou apaga dados. Não execute também a
+instalação manual abaixo se já usou o instalador.
+
 Os comandos abaixo pressupõem o usuário Ubuntu `ubuntu` e a pasta acima.
 Eles criam outro serviço; preservam o serviço anterior e suas configurações.
 
