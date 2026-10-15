@@ -62,7 +62,7 @@ export function AuthScreen({ firstAccess }: { firstAccess: boolean }) {
   }
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.08fr_.92fr]">
+    <main className="auth-screen grid min-h-dvh lg:grid-cols-[1.08fr_.92fr]">
       <section className="relative hidden overflow-hidden bg-gradient-to-br from-sky-700 via-sky-600 to-cyan-400 p-14 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="absolute -right-32 -top-32 size-[420px] rounded-full border-[80px] border-white/5" />
         <div className="absolute -bottom-36 -left-24 size-[480px] rounded-full border-[90px] border-white/5" />
@@ -88,12 +88,12 @@ export function AuthScreen({ firstAccess }: { firstAccess: boolean }) {
           </p>
         </div>
         <p className="relative text-xs text-sky-100">
-          Os dados ficam no banco SQLite desta instalação.
+          Sua cota organizada, do estoque ao próximo pagamento.
         </p>
       </section>
-      <section className="flex items-center justify-center bg-[var(--background)] p-6">
-        <div className="w-full max-w-md">
-          <div className="mb-9 flex items-center gap-3 lg:hidden">
+      <section className="flex items-center justify-center bg-gradient-to-b from-sky-50 via-[var(--background)] to-white px-4 py-8 sm:p-8">
+        <div className="w-full max-w-md rounded-3xl border border-white bg-white/85 p-5 shadow-[0_20px_70px_rgba(2,132,199,.08)] sm:p-8">
+          <div className="mb-8 flex items-center gap-3 lg:hidden">
             <span className="grid size-11 place-items-center rounded-2xl bg-sky-600 text-white">
               <Droplets />
             </span>
@@ -129,6 +129,8 @@ export function AuthScreen({ firstAccess }: { firstAccess: boolean }) {
                   label="WhatsApp"
                   name="phone"
                   placeholder="(85) 9 9999-9999"
+                  type="tel"
+                  autoComplete="tel"
                   required={false}
                 />
               </>
@@ -139,6 +141,8 @@ export function AuthScreen({ firstAccess }: { firstAccess: boolean }) {
               name="username"
               placeholder="Ex.: administrador"
               autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
             />
             <div>
               <label
@@ -165,7 +169,7 @@ export function AuthScreen({ firstAccess }: { firstAccess: boolean }) {
                   type="button"
                   onClick={() => setShow(!show)}
                   aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  className="absolute right-1 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-lg text-slate-500"
                 >
                   {show ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

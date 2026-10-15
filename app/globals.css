@@ -146,3 +146,59 @@ button:active { transform: translateY(1px); }
     @apply font-sans;
   }
 }
+
+.mobile-navigation {
+  padding-bottom: max(.5rem, env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 30px rgb(15 23 42 / 5%);
+}
+
+.mobile-dialog {
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  border: 0;
+  padding: 4rem 0 0;
+  background: transparent;
+  color: var(--foreground);
+}
+.mobile-dialog[open] { display: flex; align-items: flex-end; justify-content: center; }
+.mobile-dialog::backdrop { background: rgb(15 23 42 / 40%); backdrop-filter: blur(5px); }
+.dialog-content {
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 1.5rem 1.5rem 0 0;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+.dialog-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+.dialog-sheet { position: relative; width: 100%; max-width: 28rem; }
+.dialog-content h2 { padding-right: 2.75rem; }
+.dialog-close { position: absolute; top: .5rem; right: .5rem; box-shadow: none; }
+
+@media (min-width: 640px) {
+  .mobile-dialog { padding: 2rem; }
+  .mobile-dialog[open] { align-items: center; }
+  .dialog-content { border-radius: 1.25rem; }
+}
+
+@media (max-width: 1023px) {
+  .dashboard-content { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 639px) {
+  .dashboard { background-image: linear-gradient(180deg, #f0f9ff 0, transparent 24rem); }
+  .dashboard button { min-height: 44px; touch-action: manipulation; }
+  .dashboard p, .dashboard h1, .dashboard h2, .dashboard h3 { overflow-wrap: anywhere; }
+  .dashboard .quick-actions button { min-width: 0; padding-inline: .625rem; font-size: .8125rem; }
+  .dashboard .member-actions button { white-space: normal; padding: .625rem .5rem; line-height: 1.3; }
+  .dashboard input, .dashboard select, .auth-screen input { font-size: 16px; }
+  .metric-icon { width: 38px; height: 38px; border-radius: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button, a { transition: none; }
+}

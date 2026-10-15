@@ -9,6 +9,10 @@ import {
   Droplets,
   History,
   LoaderCircle,
+  LayoutDashboard,
+  LogOut,
+  UserRoundCog,
+  X,
   PackageCheck,
   Plus,
   UsersRound,
@@ -80,6 +84,15 @@ type AlertItem = {
   createdAt: number;
   tone: 'sky' | 'amber' | 'green';
 };
+const mobileTabs: Record<string, { label: string; icon: typeof Droplets }> = {
+  'Visão geral': { label: 'Início', icon: LayoutDashboard },
+  Garrafões: { label: 'Estoque', icon: PackageCheck },
+  'Pessoas da cota': { label: 'Pessoas', icon: UsersRound },
+  'Pagamentos e créditos': { label: 'Finanças', icon: WalletCards },
+  Histórico: { label: 'Histórico', icon: History },
+  'Usuários de acesso': { label: 'Acessos', icon: UserRoundCog },
+};
+
 type Modal =
   | 'member'
   | 'account'
@@ -329,9 +342,9 @@ export function Dashboard({
   };
 
   return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <main className="dashboard min-h-dvh bg-[var(--background)] text-[var(--foreground)]">
       <header className="sticky top-0 z-20 border-b border-sky-100/80 bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-20 max-w-[1480px] items-center justify-between px-5 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-[1480px] items-center justify-between gap-3 px-4 sm:h-20 sm:px-5 lg:px-8">
           <div className="flex items-center gap-3">
             <span className="grid size-11 place-items-center rounded-2xl bg-sky-600 text-white shadow-[0_8px_24px_rgba(2,132,199,.24)]">
               <Droplets size={23} strokeWidth={2.5} />
@@ -340,19 +353,19 @@ export function Dashboard({
               <p className="text-[17px] font-extrabold tracking-tight">
                 Cota D’Água
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="hidden text-xs text-slate-500 sm:block">
                 Gestão simples, água em dia
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div className="relative">
               <button
                 type="button"
                 aria-label="Abrir notificações"
                 aria-expanded={notificationsOpen}
                 onClick={toggleNotifications}
-                className="relative grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+                className="relative grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
               >
                 <BellRing size={18} />
                 {unreadNotifications > 0 && (
@@ -362,7 +375,7 @@ export function Dashboard({
                 )}
               </button>
               {notificationsOpen && (
-                <section className="absolute right-0 top-12 z-50 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl">
+                <section className="fixed inset-x-4 top-20 z-50 sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[23rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-2xl">
                   <header className="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
                     <div>
                       <h2 className="font-extrabold text-slate-950">
@@ -381,7 +394,7 @@ export function Dashboard({
                       ×
                     </button>
                   </header>
-                  <div className="max-h-[22rem] overflow-y-auto">
+                  <div className="max-h-[min(22rem,calc(100dvh-16rem))] overflow-y-auto">
                     {alertItems.length === 0 ? (
                       <Empty text="Nenhuma notificação ainda." />
                     ) : (
@@ -442,14 +455,16 @@ export function Dashboard({
                 {admin ? 'Administrador' : 'Cliente'}
               </p>
             </div>
-            <span className="grid size-10 place-items-center rounded-xl bg-slate-900 text-xs font-bold text-white">
+            <span className="hidden size-10 place-items-center rounded-xl bg-slate-900 sm:grid text-xs font-bold text-white">
               {initials(data?.account.name || identity.name)}
             </span>
             <button
               onClick={logout}
-              className="rounded-lg px-2 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Sair da conta"
+              className="flex size-11 items-center justify-center gap-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-900 sm:w-auto sm:px-3"
             >
-              Sair
+              <LogOut size={18} />
+              <span className="hidden sm:inline">Sair</span>
             </button>
           </div>
         </div>
@@ -484,21 +499,9 @@ export function Dashboard({
             </button>
           </div>
         </aside>
-        <section className="min-w-0 p-5 md:p-8 lg:p-10">
-          <div className="mb-5 flex gap-2 overflow-auto lg:hidden">
-            {tabs.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${tab === t ? 'bg-sky-600 text-white' : 'bg-white text-slate-600'}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+        <section className="dashboard-content min-w-0 p-4 sm:p-6 md:p-8 lg:p-10">
           {(notice || error) && (
-            <div
-              role="status"
+            <output
               className={`mb-5 flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-semibold ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}
             >
               <span>{error || notice}</span>
@@ -511,7 +514,7 @@ export function Dashboard({
               >
                 ×
               </button>
-            </div>
+            </output>
           )}
           {!data ? (
             <div className="grid min-h-[55vh] place-items-center">
@@ -527,22 +530,24 @@ export function Dashboard({
                   <h1 className="text-3xl font-black tracking-[-.04em] text-slate-950 md:text-4xl">
                     {tab === 'Visão geral' ? `Bom dia, ${firstName}.` : tab}
                   </h1>
-                  <p className="mt-2 text-slate-500">
+                  <p className="mt-2 text-sm leading-relaxed text-slate-500 sm:text-base">
                     {admin
                       ? 'Acompanhe e administre a cota de água.'
                       : 'Acompanhe a cota e informe garrafões vazios.'}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="quick-actions grid auto-cols-fr grid-flow-col gap-2 sm:flex sm:flex-wrap">
                   {admin && (
                     <>
-                      <Button
-                        onClick={() => setModal('member')}
-                        className="h-11 rounded-xl bg-sky-600 px-5 font-bold"
-                      >
-                        <Plus />
-                        Pessoa na cota
-                      </Button>
+                      {(tab === 'Visão geral' || tab === 'Pessoas da cota') && (
+                        <Button
+                          onClick={() => setModal('member')}
+                          className="h-11 rounded-xl bg-sky-600 px-5 font-bold"
+                        >
+                          <Plus />
+                          Pessoa na cota
+                        </Button>
+                      )}
                       {tab === 'Usuários de acesso' && (
                         <Button
                           onClick={() => setModal('account')}
@@ -565,7 +570,9 @@ export function Dashboard({
                   </Button>
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div
+                className={`${tab === 'Visão geral' ? 'grid' : 'hidden lg:grid'} grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4`}
+              >
                 <Metric
                   icon={<PackageCheck />}
                   label="Garrafões cheios"
@@ -627,7 +634,7 @@ export function Dashboard({
                   openAccount={() => setModal('account')}
                 />
               ) : (
-                <div className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_.8fr]">
+                <div className="mt-6 grid gap-5 xl:grid-cols-[1.45fr_.8fr]">
                   <Members
                     members={shownMembers}
                     next={next}
@@ -711,6 +718,35 @@ export function Dashboard({
           )}
         </section>
       </div>
+      <nav
+        className="mobile-navigation fixed inset-x-0 bottom-0 z-30 flex border-t border-slate-200/80 bg-white/95 px-1 pt-2 backdrop-blur-xl lg:hidden"
+        aria-label="Menu principal no celular"
+      >
+        {tabs.map((item) => {
+          const { label, icon: Icon } = mobileTabs[item];
+          return (
+            <button
+              key={item}
+              type="button"
+              aria-label={item}
+              aria-current={tab === item ? 'page' : undefined}
+              onClick={() => {
+                setTab(item);
+                setNotificationsOpen(false);
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              }}
+              className={`flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-semibold ${tab === item ? 'bg-sky-50 text-sky-700' : 'text-slate-500 hover:bg-slate-50'}`}
+            >
+              <Icon
+                size={20}
+                strokeWidth={tab === item ? 2.5 : 1.8}
+                aria-hidden="true"
+              />
+              {label}
+            </button>
+          );
+        })}
+      </nav>
       <Forms
         modal={modal}
         setModal={setModal}
@@ -737,13 +773,17 @@ function Metric({
   color: string;
 }) {
   return (
-    <article className="rounded-[20px] border border-slate-200 bg-white p-5 shadow-[0_8px_25px_rgba(15,23,42,.04)]">
+    <article className="min-w-0 rounded-[20px] border border-slate-200 bg-white p-4 sm:p-5 shadow-[0_8px_25px_rgba(15,23,42,.04)]">
       <div className="flex items-start justify-between">
         <span className={`metric-icon metric-${color}`}>{icon}</span>
-        <span className="text-xs font-bold text-emerald-600">Atualizado</span>
+        <span className="hidden text-xs font-bold text-emerald-600 sm:inline">
+          Atualizado
+        </span>
       </div>
-      <p className="mt-5 text-sm font-semibold text-slate-500">{label}</p>
-      <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">
+      <p className="mt-4 text-xs font-semibold leading-relaxed text-slate-500 sm:text-sm">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
         {value}
       </p>
       <p className="mt-1 text-xs text-slate-400">{detail}</p>
@@ -777,7 +817,7 @@ function Accounts({
         {accounts.map((account, index) => (
           <div
             key={account.id}
-            className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-5 py-4 md:px-6"
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 md:px-6"
           >
             <span
               className={`avatar avatar-${['blue', 'green', 'violet', 'amber'][index % 4]}`}
@@ -843,7 +883,7 @@ function Members({
           {members.map((m, i) => (
             <div
               key={m.id}
-              className="grid grid-cols-[auto_1fr] items-center gap-3 px-5 py-4 md:grid-cols-[auto_1fr_150px_100px] md:px-6"
+              className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-4 py-5 md:grid-cols-[auto_minmax(0,1fr)_150px_100px] md:px-6"
             >
               <span
                 className={`avatar avatar-${['amber', 'green', 'blue', 'violet'][i % 4]}`}
@@ -855,9 +895,12 @@ function Members({
                 <p className="text-xs text-slate-500">
                   {m.phone || 'WhatsApp não informado'}
                 </p>
+                <p className="mt-1 text-xs font-bold text-emerald-700 md:hidden">
+                  Crédito: {money(m.creditCents)}
+                </p>
               </div>
               <span
-                className={`mt-1 w-fit rounded-full px-2.5 py-1 text-[11px] font-bold md:mt-0 ${m.id === next?.id ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
+                className={`col-span-full mt-1 w-fit rounded-full md:col-span-1 px-2.5 py-1 text-[11px] font-bold md:mt-0 ${m.id === next?.id ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
               >
                 {m.id === next?.id
                   ? 'Próximo da vez'
@@ -867,9 +910,9 @@ function Members({
                 {money(m.creditCents)}
               </p>
               {admin && expanded && (
-                <div className="col-span-full flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                <div className="member-actions col-span-full grid grid-cols-2 items-center gap-2 border-t border-slate-100 pt-3 md:flex md:flex-wrap">
                   <span
-                    className={`mr-auto rounded-full px-2.5 py-1 text-[11px] font-bold ${m.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-700' : m.paymentStatus === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
+                    className={`col-span-full mr-auto rounded-full px-2.5 py-1 text-[11px] font-bold ${m.paymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-700' : m.paymentStatus === 'pending' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}
                   >
                     {m.paymentStatus === 'paid'
                       ? 'Pagamento confirmado'
@@ -898,7 +941,7 @@ function Members({
                   <Button
                     type="button"
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="col-span-full bg-emerald-600 hover:bg-emerald-700"
                     onClick={() => markPaid(m.id)}
                     disabled={busy || m.paymentStatus === 'paid'}
                   >
@@ -942,7 +985,7 @@ function Garrafões({
           {data.settings.fullBottles} cheios de um total de{' '}
           {data.settings.totalBottles} garrafões.
         </p>
-        <div className="mt-6 flex gap-2">
+        <div className="mt-6 grid gap-2 sm:flex">
           <Button onClick={openEmpty} className="h-10 rounded-xl bg-sky-600">
             Informar vazio
           </Button>
@@ -1009,7 +1052,7 @@ function Financeiro({
           </p>
         </div>
         {admin && (
-          <div className="flex gap-2">
+          <div className="grid w-full gap-2 sm:flex sm:w-auto">
             <Button onClick={openCredit} variant="outline">
               Adicionar crédito
             </Button>
@@ -1020,32 +1063,79 @@ function Financeiro({
         )}
       </div>
       {data.payments.length ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
-              <tr>
-                <th className="p-4">Pessoa</th>
-                <th>Garrafões</th>
-                <th>Total</th>
-                <th>Crédito usado</th>
-                <th>Pago</th>
-                <th>Data</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {data.payments.map((p) => (
-                <tr key={p.id}>
-                  <td className="p-4 font-bold">{p.memberName}</td>
-                  <td>{p.bottles}</td>
-                  <td>{money(p.totalCents)}</td>
-                  <td>{money(p.creditUsedCents)}</td>
-                  <td>{money(p.paidCents)}</td>
-                  <td>{date(p.createdAt)}</td>
+        <>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {data.payments.map((payment) => (
+              <article key={payment.id} className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="break-words text-sm font-bold text-slate-900">
+                      {payment.memberName}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {date(payment.createdAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${payment.status === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}
+                  >
+                    {payment.status === 'paid' ? 'Pago' : 'Pendente'}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3 text-xs">
+                  <div>
+                    <dt className="text-slate-500">Garrafões</dt>
+                    <dd className="mt-1 font-bold">{payment.bottles}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Total</dt>
+                    <dd className="mt-1 font-bold">
+                      {money(payment.totalCents)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Crédito usado</dt>
+                    <dd className="mt-1 font-bold">
+                      {money(payment.creditUsedCents)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">Valor pago</dt>
+                    <dd className="mt-1 font-bold text-emerald-700">
+                      {money(payment.paidCents)}
+                    </dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="p-4">Pessoa</th>
+                  <th>Garrafões</th>
+                  <th>Total</th>
+                  <th>Crédito usado</th>
+                  <th>Pago</th>
+                  <th>Data</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y">
+                {data.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="p-4 font-bold">{p.memberName}</td>
+                    <td>{p.bottles}</td>
+                    <td>{money(p.totalCents)}</td>
+                    <td>{money(p.creditUsedCents)}</td>
+                    <td>{money(p.paidCents)}</td>
+                    <td>{date(p.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         <Empty text="Nenhum pagamento registrado." />
       )}
@@ -1076,12 +1166,15 @@ function Historico({ data }: { data: Data }) {
       {items.length ? (
         <div className="mt-4 divide-y">
           {items.map((i) => (
-            <div key={i.id} className="flex items-center justify-between py-4">
+            <div
+              key={i.id}
+              className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            >
               <div>
                 <p className="text-sm font-bold">{i.title}</p>
                 <p className="text-xs text-slate-500">{i.detail}</p>
               </div>
-              <time className="text-xs text-slate-400">
+              <time className="shrink-0 text-xs text-slate-400">
                 {date(i.createdAt)}
               </time>
             </div>
@@ -1103,23 +1196,46 @@ function Dialog({
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    const previousOverflow = document.body.style.overflow;
+    if (open && dialog && !dialog.open) {
+      dialog.showModal();
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      dialog?.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
   if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/25 p-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onOpenChange(false);
-      }}
+    <dialog
+      ref={ref}
+      aria-labelledby="form-dialog-title"
+      className="mobile-dialog"
+      onCancel={() => onOpenChange(false)}
     >
-      {children}
       <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Fechar formulário pelo fundo"
+        className="dialog-backdrop"
         onClick={() => onOpenChange(false)}
-        aria-label="Fechar janela"
-        className="fixed right-6 top-6 grid size-10 place-items-center rounded-full bg-white text-xl text-slate-600 shadow-lg"
-      >
-        ×
-      </button>
-    </div>
+      />
+      <div className="dialog-sheet">
+        {children}
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Fechar janela"
+          className="dialog-close grid size-11 place-items-center rounded-full bg-white text-slate-600 shadow-lg hover:bg-slate-50"
+        >
+          <X size={20} />
+        </button>
+      </div>
+    </dialog>
   );
 }
 function DialogContent({
@@ -1131,14 +1247,13 @@ function DialogContent({
 }) {
   return (
     <section
-      role="dialog"
-      aria-modal="true"
-      className={`w-full bg-white shadow-2xl ${className ?? ''}`}
+      className={`dialog-content w-full bg-white shadow-2xl ${className ?? ''}`}
     >
       {children}
     </section>
   );
 }
+
 function DialogHeader({ children }: { children: React.ReactNode }) {
   return <header className="mb-2 space-y-2">{children}</header>;
 }
@@ -1149,7 +1264,11 @@ function DialogTitle({
   className?: string;
   children: React.ReactNode;
 }) {
-  return <h2 className={className}>{children}</h2>;
+  return (
+    <h2 id="form-dialog-title" className={className}>
+      {children}
+    </h2>
+  );
 }
 function DialogDescription({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-slate-500">{children}</p>;
@@ -1170,11 +1289,12 @@ function Forms({
   act: (b: Record<string, unknown>) => Promise<unknown>;
   selectedMemberId: string;
 }) {
-  const submit = (action: string) => (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const values = Object.fromEntries(new FormData(e.currentTarget));
-    act({ action, ...values }).catch(() => {});
-  };
+  const submit =
+    (action: string) => (e: React.SyntheticEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const values = Object.fromEntries(new FormData(e.currentTarget));
+      act({ action, ...values }).catch(() => {});
+    };
   const clients = data?.members ?? [];
   return (
     <Dialog
@@ -1246,7 +1366,7 @@ function Forms({
         {modal === 'stock' && (
           <form
             onSubmit={submit('set_stock')}
-            className="grid grid-cols-2 gap-4"
+            className="grid grid-cols-1 gap-4 min-[380px]:grid-cols-2"
           >
             <Field
               name="total"
@@ -1277,7 +1397,7 @@ function Forms({
               min="0"
               defaultValue={data?.settings.alertThreshold}
             />
-            <div className="col-span-2">
+            <div className="col-span-full">
               <Submit busy={busy}>Salvar estoque</Submit>
             </div>
           </form>
@@ -1355,12 +1475,13 @@ function Forms({
 function Field(props: React.ComponentProps<'input'> & { label: string }) {
   const { label, ...input } = props;
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <Label htmlFor={String(input.name)}>{label}</Label>
       <Input
         id={String(input.name)}
-        className="h-11 rounded-xl"
+        className="h-12 rounded-xl text-base sm:text-sm"
         required={input.required !== false}
+        type={input.name === 'phone' ? 'tel' : undefined}
         {...input}
       />
     </div>
@@ -1381,7 +1502,7 @@ function MemberSelect({
         name="memberId"
         defaultValue={selectedMemberId}
         required
-        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+        className="h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base sm:text-sm"
       >
         <option value="">Selecione</option>
         {clients.map((m) => (
@@ -1404,7 +1525,7 @@ function Submit({
     <Button
       disabled={busy}
       type="submit"
-      className="h-11 w-full rounded-xl bg-sky-600 font-bold"
+      className="h-12 w-full rounded-xl bg-sky-600 font-bold"
     >
       {busy ? <LoaderCircle className="animate-spin" /> : children}
     </Button>
