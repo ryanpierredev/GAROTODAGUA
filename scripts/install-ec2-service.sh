@@ -86,7 +86,7 @@ After=network-online.target postgresql.service
 [Service]
 Type=simple
 User=$service_user
-WorkingDirectory="$project_dir"
+WorkingDirectory=$project_dir
 Environment="PATH=$node_bin_dir:/usr/local/bin:/usr/bin:/bin"
 Environment=NODE_ENV=production
 ExecStart="$npm_bin" start -- --hostname 127.0.0.1 --port 3002
@@ -101,6 +101,7 @@ EOF
 
 switching=true
 sudo -n install -m 644 "$scratch_dir/new.service" "$unit"
+sudo -n systemd-analyze verify --man=no "$unit"
 sudo -n systemctl daemon-reload
 if [[ "$old_active" == true ]]; then sudo -n systemctl stop garotodagua; fi
 sudo -n systemctl restart garotodagua-postgres

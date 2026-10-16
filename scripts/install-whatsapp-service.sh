@@ -21,7 +21,7 @@ After=network-online.target postgresql.service
 [Service]
 Type=simple
 User=$(id -un)
-WorkingDirectory="$(pwd)"
+WorkingDirectory=$(pwd)
 Environment="PATH=$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
 ExecStart="$(command -v npm)" run whatsapp:worker
 Restart=on-failure
@@ -31,6 +31,7 @@ TimeoutStopSec=30
 [Install]
 WantedBy=multi-user.target
 EOF
+sudo -n systemd-analyze verify --man=no "$unit"
 sudo -n systemctl daemon-reload
 sudo -n systemctl enable garotodagua-whatsapp
 sudo -n systemctl restart garotodagua-whatsapp
