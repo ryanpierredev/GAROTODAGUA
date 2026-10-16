@@ -18,7 +18,11 @@
     "test:postgres": "node --experimental-strip-types --experimental-sqlite --test tests/postgres.test.mjs",
     "test:smoke": "node scripts/smoke-postgres.mjs",
     "whatsapp:worker": "node --env-file-if-exists=.env scripts/whatsapp-worker.mjs",
-    "test:whatsapp": "node --test tests/whatsapp.test.mjs"
+    "test:whatsapp": "node --test tests/whatsapp.test.mjs",
+    "telegram:setup": "node --env-file-if-exists=.env scripts/telegram-setup.mjs",
+    "telegram:test": "node --env-file-if-exists=.env scripts/telegram-setup.mjs --test",
+    "telegram:worker": "node --env-file-if-exists=.env scripts/telegram-worker.mjs",
+    "test:telegram": "node --test tests/telegram.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

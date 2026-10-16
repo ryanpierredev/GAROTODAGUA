@@ -15,6 +15,13 @@
       "when": 1792103599749,
       "tag": "0001_admin_whatsapp_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792146455996,
+      "tag": "0002_telegram_alerts",
+      "breakpoints": true
     }
   ]
 }

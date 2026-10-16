@@ -29,8 +29,9 @@ export async function importD1(filename, pool) {
       source.prepare(`SELECT 1 FROM ${identifier(table)} LIMIT 1`).all();
     client = await pool.connect();
     await client.query('BEGIN');
-    // Imported history must not generate new WhatsApp alerts.
+    // Imported history must not generate new outgoing alerts.
     await client.query("SET LOCAL garotodagua.skip_whatsapp_alerts = 'on'");
+    await client.query("SET LOCAL garotodagua.skip_telegram_alerts = 'on'");
     await client.query(
       `LOCK TABLE ${tables.map(identifier).join(', ')} IN EXCLUSIVE MODE`,
     );

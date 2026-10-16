@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { processAlert } from './alert-queue.mjs';
 
 export function readConfig(env = process.env) {
   const required = [
@@ -73,52 +73,12 @@ export async function submitAlert(config, alert, fetcher = fetch) {
   return body.messages[0].id;
 }
 
-export async function processNext(pool, config, fetcher = fetch) {
-  const now = Date.now();
-  const leaseToken = randomUUID();
-  await pool.query(
-    `UPDATE admin_whatsapp_alerts SET status = 'failed',
-    error = 'Tentativas esgotadas após interrupção', lease_token = NULL, lease_until = NULL
-    WHERE status = 'sending' AND attempts >= 5 AND lease_until <= $1`,
-    [now],
+export function processNext(pool, config, fetcher = fetch) {
+  return processAlert(
+    pool,
+    'admin_whatsapp_alerts',
+    config,
+    submitAlert,
+    fetcher,
   );
-  const { rows } = await pool.query(
-    `
-    UPDATE admin_whatsapp_alerts SET status = 'sending', lease_token = $1,
-      lease_until = $2, recipient = COALESCE(recipient, $3), attempts = attempts + 1
-    WHERE id = (
-      SELECT id FROM admin_whatsapp_alerts
-      WHERE attempts < 5 AND ((status = 'pending' AND next_attempt_at <= $4)
-         OR (status = 'sending' AND lease_until <= $4))
-      ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1
-    ) RETURNING *`,
-    [leaseToken, now + 60000, config.recipient, now],
-  );
-  const alert = rows[0];
-  if (!alert) return false;
-  try {
-    const id = await submitAlert(config, alert, fetcher);
-    await pool.query(
-      `UPDATE admin_whatsapp_alerts SET status = 'submitted',
-      provider_id = $1, submitted_at = $2, error = NULL, lease_token = NULL, lease_until = NULL
-      WHERE id = $3 AND lease_token = $4`,
-      [id, Date.now(), alert.id, leaseToken],
-    );
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Falha de transporte';
-    await pool.query(
-      `UPDATE admin_whatsapp_alerts SET status = $1, error = $2,
-      next_attempt_at = $3, lease_token = NULL, lease_until = NULL
-      WHERE id = $4 AND lease_token = $5`,
-      [
-        alert.attempts >= 5 ? 'failed' : 'pending',
-        message.slice(0, 300),
-        Date.now() + Math.min(3600000, 30000 * 2 ** (alert.attempts - 1)),
-        alert.id,
-        leaseToken,
-      ],
-    );
-  }
-  return true;
 }

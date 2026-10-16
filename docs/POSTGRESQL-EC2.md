@@ -1,5 +1,9 @@
 # GAROTODAGUA no PostgreSQL da EC2
 
+Para receber alterações e avisos pelo Telegram, consulte
+[Configurar alertas Telegram](TELEGRAM.md). Usa um bot criado no @BotFather e um
+serviço separado; não exige a integração da Meta.
+
 Para receber os avisos do sistema pelo WhatsApp do administrador, consulte
 [Configurar alertas WhatsApp](WHATSAPP.md). O envio depende da conta Meta e de
 um modelo aprovado, e utiliza um serviço separado.
